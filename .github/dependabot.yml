@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     directory: /app
     schedule:
       interval: weekly
@@ -27,8 +27,8 @@ updates:
     ignore:
       # Python 3.13 is an explicit v1 platform contract.
       - dependency-name: python
-        update-types:
-          - version-update:semver-major
+        versions:
+          - ">= 3.14"
 
   - package-ecosystem: terraform
     directory: /infra/aws/bootstrap
