@@ -2,8 +2,8 @@
 image:
   repository: ghcr.io/murillo-consulting/kube-aegis-forge
   tag: ""
-  digest: sha256:4de728df9b483e36e27e1c03f1726f27c0ce12686cc139879296453914bf8a75
+  digest: sha256:f9dfd4a9103fa266a354ba08ca50676a4bc4ab651918e0c795a44bebaf727633
   pullPolicy: IfNotPresent
 build:
-  version: 655eda6a9712
-  gitSha: "655eda6a9712503544ee17053a47b09a37b84062"
+  version: b1680c806b48
+  gitSha: "b1680c806b48da171bed8643f5867806d203f6aa"
