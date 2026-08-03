@@ -1,0 +1,7 @@
+# Generated branch state. The promotion workflow replaces this placeholder.
+image:
+  repository: ghcr.io/murillo-consulting/kube-aegis-forge
+  tag: dev
+  digest: ""
+  pullPolicy: IfNotPresent
+
