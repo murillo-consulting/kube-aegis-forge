@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-api
+  namespace: argocd
+spec:
+  project: workloads
+  sources:
+    - repoURL: ghcr.io/murillo-consulting
+      chart: kube-aegis-forge
+      targetRevision: 0.3.0
+      helm:
+        releaseName: demo-api
+        valueFiles:
+          - $images/platform/environments/aws/image-values.yaml
+        valuesObject:
+          nameOverride: demo-api
+          fullnameOverride: demo-api
+          ingress:
+            enabled: false
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+            maxReplicas: 3
+            targetCPUUtilizationPercentage: 70
+    - repoURL: https://github.com/murillo-consulting/kube-aegis-forge.git
+      targetRevision: gitops
+      ref: images
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

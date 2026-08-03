@@ -1,0 +1,69 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: workload-hardening
+policies:
+  - ../workload-hardening.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: demo-workload-hardening
+    rule: require-requests-limits-and-probes
+    resources:
+      - insecure-deployment
+    kind: Deployment
+    result: fail
+  - policy: demo-workload-hardening
+    rule: require-requests-limits-and-probes
+    resources:
+      - hardened-deployment
+    kind: Deployment
+    result: pass
+  - policy: demo-workload-hardening
+    rule: require-immutable-images
+    resources:
+      - mutable-pod
+    kind: Pod
+    result: fail
+  - policy: demo-workload-hardening
+    rule: require-immutable-images
+    resources:
+      - immutable-pod
+    kind: Pod
+    result: pass
+  - policy: demo-workload-hardening
+    rule: require-pod-security-context
+    resources:
+      - mutable-pod
+    kind: Pod
+    result: fail
+  - policy: demo-workload-hardening
+    rule: require-pod-security-context
+    resources:
+      - immutable-pod
+    kind: Pod
+    result: pass
+  - policy: demo-workload-hardening
+    rule: disable-service-account-token-automount
+    resources:
+      - mutable-pod
+    kind: Pod
+    result: fail
+  - policy: demo-workload-hardening
+    rule: disable-service-account-token-automount
+    resources:
+      - immutable-pod
+    kind: Pod
+    result: pass
+  - policy: demo-workload-hardening
+    rule: require-container-security-context
+    resources:
+      - mutable-pod
+    kind: Pod
+    result: fail
+  - policy: demo-workload-hardening
+    rule: require-container-security-context
+    resources:
+      - immutable-pod
+    kind: Pod
+    result: pass

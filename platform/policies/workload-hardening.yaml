@@ -1,0 +1,117 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: demo-workload-hardening
+  annotations:
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: Enforces restricted runtime and operational controls.
+spec:
+  admission: true
+  background: true
+  rules:
+    - name: require-requests-limits-and-probes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - demo
+      validate:
+        failureAction: Enforce
+        message: Containers require CPU/memory requests, limits, and health probes.
+        foreach:
+          - list: request.object.spec.template.spec.containers
+            pattern:
+              resources:
+                requests:
+                  cpu: "?*"
+                  memory: "?*"
+                limits:
+                  cpu: "?*"
+                  memory: "?*"
+              livenessProbe:
+                httpGet:
+                  path: "?*"
+              readinessProbe:
+                httpGet:
+                  path: "?*"
+    - name: require-immutable-images
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - demo
+      validate:
+        failureAction: Enforce
+        message: Images, including latest, are forbidden unless pinned by sha256 digest.
+        foreach:
+          - list: request.object.spec.containers
+            pattern:
+              image: "*@sha256:*"
+          - list: request.object.spec.initContainers
+            pattern:
+              image: "*@sha256:*"
+    - name: require-pod-security-context
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - demo
+      validate:
+        failureAction: Enforce
+        message: Pods must use a non-root identity and RuntimeDefault seccomp.
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+    - name: disable-service-account-token-automount
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - demo
+      validate:
+        failureAction: Enforce
+        message: Workload pods must not automatically mount service account tokens.
+        pattern:
+          spec:
+            automountServiceAccountToken: false
+    - name: require-container-security-context
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - demo
+      validate:
+        failureAction: Enforce
+        message: Containers must be unprivileged, read-only, and drop every capability.
+        foreach:
+          - list: request.object.spec.containers
+            pattern:
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                privileged: false
+                readOnlyRootFilesystem: true
+          - list: request.object.spec.initContainers
+            pattern:
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                privileged: false
+                readOnlyRootFilesystem: true

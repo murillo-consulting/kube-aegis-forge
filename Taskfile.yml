@@ -1,0 +1,104 @@
+version: "3"
+
+silent: true
+
+vars:
+  POWERSHELL: '{{if eq OS "windows"}}powershell{{else}}pwsh{{end}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  tools:check:
+    desc: Check required and optional workstation tools
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/tools-check.ps1{{else}}bash scripts/tools-check.sh{{end}}'
+
+  app:check:
+    desc: Run linting, typing, tests, and coverage checks
+    dir: app
+    cmds:
+      - uv sync --locked --all-groups
+      - uv run ruff check .
+      - uv run mypy src tests
+      - uv run pytest
+
+  helm:check:
+    desc: Lint and render the application Helm chart
+    cmds:
+      - helm lint platform/charts/demo-api --values platform/environments/local/values.yaml --values platform/environments/local/image-values.yaml
+      - helm template demo-api platform/charts/demo-api --namespace demo --values platform/environments/local/values.yaml --values platform/environments/local/image-values.yaml > {{if eq OS "windows"}}NUL{{else}}/dev/null{{end}}
+
+  tofu:check:
+    desc: Format and validate all OpenTofu roots
+    cmds:
+      - tofu fmt -check -recursive infra
+      - tofu -chdir=infra/aws/bootstrap init -backend=false
+      - tofu -chdir=infra/aws/bootstrap validate
+      - tofu -chdir=infra/aws/bootstrap test
+      - tofu -chdir=infra/aws/eks init -backend=false
+      - tofu -chdir=infra/aws/eks validate
+      - tofu -chdir=infra/aws/eks test
+
+  security:check:
+    desc: Scan IaC and execute admission-policy tests
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/security-check.ps1{{else}}bash scripts/security-check.sh{{end}}'
+
+  local:up:
+    desc: Create kind, bootstrap Argo CD, and apply the root application
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/local.ps1 -Command up{{else}}bash scripts/local.sh up{{end}}'
+
+  local:verify:
+    desc: Verify API, GitOps, policies, metrics, and self-healing
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/local.ps1 -Command verify{{else}}bash scripts/local.sh verify{{end}}'
+
+  local:status:
+    desc: Summarize nodes, Argo applications, workloads, and endpoints
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/local.ps1 -Command status{{else}}bash scripts/local.sh status{{end}}'
+
+  local:logs:
+    desc: Follow application logs
+    cmds:
+      - kubectl --context kind-kube-aegis-forge -n demo logs deployment/demo-api --all-pods=true --prefix=true --follow
+
+  local:port-forward:argocd:
+    desc: Expose Argo CD at https://localhost:8443
+    cmds:
+      - kubectl --context kind-kube-aegis-forge -n argocd port-forward service/argocd-server 8443:443
+
+  local:port-forward:grafana:
+    desc: Expose Grafana at http://localhost:3000
+    cmds:
+      - kubectl --context kind-kube-aegis-forge -n monitoring port-forward service/monitoring-grafana 3000:80
+
+  local:port-forward:prometheus:
+    desc: Expose Prometheus at http://localhost:9090
+    cmds:
+      - kubectl --context kind-kube-aegis-forge -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
+
+  local:down:
+    desc: Delete only the kube-aegis-forge kind cluster
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/local.ps1 -Command down{{else}}bash scripts/local.sh down{{end}}'
+
+  aws:plan:
+    desc: Initialize and create an AWS plan (no changes applied)
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/aws.ps1 -Command plan{{else}}bash scripts/aws.sh plan{{end}}'
+
+  aws:apply:
+    desc: Apply the exact saved AWS plan after explicit confirmation
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/aws.ps1 -Command apply{{else}}bash scripts/aws.sh apply{{end}}'
+
+  aws:destroy:
+    desc: Destroy AWS resources after project-name confirmation
+    cmds:
+      - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/aws.ps1 -Command destroy{{else}}bash scripts/aws.sh destroy{{end}}'
+

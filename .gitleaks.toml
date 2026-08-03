@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated dependency caches are ignored and never committed."
+paths = [
+  '''(^|/)\.terraform/''',
+  '''(^|/)\.venv/''',
+]

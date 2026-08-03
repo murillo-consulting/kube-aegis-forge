@@ -1,0 +1,31 @@
+{{- if .Values.namespaceGuardrails.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "demo-api.fullname" . }}-quota
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+spec:
+  hard:
+    pods: {{ .Values.namespaceGuardrails.resourceQuota.pods | quote }}
+    requests.cpu: {{ .Values.namespaceGuardrails.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.namespaceGuardrails.resourceQuota.requestsMemory | quote }}
+    limits.cpu: {{ .Values.namespaceGuardrails.resourceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.namespaceGuardrails.resourceQuota.limitsMemory | quote }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "demo-api.fullname" . }}-limits
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: {{ .Values.namespaceGuardrails.limitRange.defaultRequest.cpu | quote }}
+        memory: {{ .Values.namespaceGuardrails.limitRange.defaultRequest.memory | quote }}
+      default:
+        cpu: {{ .Values.namespaceGuardrails.limitRange.defaultLimit.cpu | quote }}
+        memory: {{ .Values.namespaceGuardrails.limitRange.defaultLimit.memory | quote }}
+{{- end }}

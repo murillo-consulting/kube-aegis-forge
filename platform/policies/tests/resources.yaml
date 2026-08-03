@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insecure-deployment
+  namespace: demo
+spec:
+  selector:
+    matchLabels:
+      app: insecure
+  template:
+    metadata:
+      labels:
+        app: insecure
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/murillo-consulting/kube-aegis-forge:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hardened-deployment
+  namespace: demo
+spec:
+  selector:
+    matchLabels:
+      app: hardened
+  template:
+    metadata:
+      labels:
+        app: hardened
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/murillo-consulting/kube-aegis-forge@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mutable-pod
+  namespace: demo
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/murillo-consulting/kube-aegis-forge:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: immutable-pod
+  namespace: demo
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: api
+      image: ghcr.io/murillo-consulting/kube-aegis-forge@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true

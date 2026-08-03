@@ -1,0 +1,7 @@
+# Manual promotion replaces this file in the generated gitops branch.
+image:
+  repository: ghcr.io/murillo-consulting/kube-aegis-forge
+  tag: dev
+  digest: ""
+  pullPolicy: IfNotPresent
+

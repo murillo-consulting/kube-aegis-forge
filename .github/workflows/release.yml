@@ -1,0 +1,228 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "Dockerfile"
+      - "platform/charts/demo-api/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  # Only the newest main commit may become desired state.
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/murillo-consulting/kube-aegis-forge
+  CHART: oci://ghcr.io/murillo-consulting/kube-aegis-forge
+
+jobs:
+  quality:
+    name: Repeat release gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - run: uv sync --locked --all-groups
+      - run: uv run ruff check .
+      - run: uv run mypy src tests
+      - run: uv run pytest
+
+  release:
+    name: Build, verify, attest, and promote
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.3
+      - name: Publish or verify immutable Helm chart
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm lint platform/charts/demo-api
+          mkdir -p .release/chart/current .release/chart/remote .release/chart/current-expanded .release/chart/remote-expanded
+          helm package platform/charts/demo-api --destination .release/chart/current
+          chart_version="$(awk '/^version:/ {print $2; exit}' platform/charts/demo-api/Chart.yaml)"
+          chart_archive=".release/chart/current/kube-aegis-forge-${chart_version}.tgz"
+          if helm pull "$CHART" --version "$chart_version" --destination .release/chart/remote; then
+            tar -xzf "$chart_archive" -C .release/chart/current-expanded
+            tar -xzf ".release/chart/remote/kube-aegis-forge-${chart_version}.tgz" -C .release/chart/remote-expanded
+            diff -ru .release/chart/remote-expanded .release/chart/current-expanded
+            echo "Verified existing immutable chart $CHART:$chart_version"
+          else
+            helm push "$chart_archive" oci://ghcr.io/murillo-consulting
+          fi
+      - name: Build and push one multi-architecture image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=python-${{ hashFiles('app/uv.lock') }}
+          cache-to: type=gha,mode=max,scope=python-${{ hashFiles('app/uv.lock') }}
+      - name: Block fixable High and Critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          version: v0.72.0
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          syft-version: v1.50.0
+          upload-artifact: false
+      - name: Generate admission-verifiable SLSA provenance predicate
+        run: |
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF" \
+            --arg sha "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            '{
+              buildDefinition: {
+                buildType: "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+                externalParameters: {
+                  workflow: {
+                    repository: $repository,
+                    ref: $ref,
+                    path: ".github/workflows/release.yml"
+                  }
+                },
+                internalParameters: {},
+                resolvedDependencies: [{
+                  uri: ("git+https://github.com/" + $repository + "@" + $ref),
+                  digest: { gitCommit: $sha }
+                }]
+              },
+              runDetails: {
+                builder: {
+                  id: ("https://github.com/" + $repository + "/.github/workflows/release.yml@" + $ref)
+                },
+                metadata: {
+                  invocationId: ("https://github.com/" + $repository + "/actions/runs/" + $run_id)
+                }
+              }
+            }' > provenance.slsa.json
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - name: Sign digest and attach supply-chain evidence
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes --new-bundle-format=false --use-signing-config=false \
+            --bundle signature.sigstore.json "$IMAGE@$DIGEST"
+          # Keep the large SPDX document in the OCI 1.1 bundle format. The
+          # compact SLSA predicate remains attached in legacy form because the
+          # Kyverno ClusterPolicy verifier reads that representation.
+          cosign attest --yes --new-bundle-format=true \
+            --bundle sbom.sigstore.json \
+            --predicate sbom.spdx.json --type spdxjson "$IMAGE@$DIGEST"
+          cosign attest --yes --new-bundle-format=false --use-signing-config=false \
+            --bundle provenance.sigstore.json \
+            --predicate provenance.slsa.json --type slsaprovenance1 "$IMAGE@$DIGEST"
+      - name: Upload signed supply-chain evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: supply-chain-evidence-${{ github.sha }}
+          path: |
+            sbom.spdx.json
+            provenance.slsa.json
+            signature.sigstore.json
+            sbom.sigstore.json
+            provenance.sigstore.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish GitHub build provenance
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Verify signature, SBOM, and provenance before promotion
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/verify-artifact.sh "$IMAGE@$DIGEST"
+      - name: Check out generated GitOps state
+        run: |
+          git ls-remote --exit-code origin refs/heads/gitops
+          git fetch origin gitops
+          git worktree add gitops-state origin/gitops
+      - name: Update local environment digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          python scripts/update-image-values.py \
+            --root gitops-state \
+            --environment local \
+            --repository "$IMAGE" \
+            --digest "$DIGEST" \
+            --version "${GITHUB_SHA::12}" \
+            --git-sha "$GITHUB_SHA"
+      - name: Commit the verified promotion
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          git -C gitops-state config user.name github-actions[bot]
+          git -C gitops-state config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C gitops-state add platform/environments/local/image-values.yaml
+          git -C gitops-state commit -m "promote(local): ${DIGEST}"
+          git -C gitops-state push origin HEAD:gitops

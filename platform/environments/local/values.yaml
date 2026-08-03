@@ -1,0 +1,18 @@
+replicaCount: 2
+nameOverride: demo-api
+fullnameOverride: demo-api
+
+ingress:
+  enabled: true
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: false
+
+build:
+  version: local
+  gitSha: gitops

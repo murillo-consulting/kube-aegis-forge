@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-20"
+spec:
+  description: Cluster-scoped platform controllers and policies.
+  sourceRepos:
+    - https://github.com/murillo-consulting/kube-aegis-forge.git
+    - ghcr.io/murillo-consulting
+    - https://argoproj.github.io/argo-helm
+    - https://kubernetes.github.io/ingress-nginx
+    - https://kubernetes-sigs.github.io/metrics-server/
+    - https://kyverno.github.io/kyverno/
+    - https://prometheus-community.github.io/helm-charts
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: workloads
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-20"
+spec:
+  description: Namespace-scoped portfolio workload for local and AWS profiles.
+  sourceRepos:
+    - https://github.com/murillo-consulting/kube-aegis-forge.git
+    - ghcr.io/murillo-consulting
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: demo
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

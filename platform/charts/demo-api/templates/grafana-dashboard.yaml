@@ -1,0 +1,64 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "demo-api.fullname" . }}-dashboard
+  labels:
+    grafana_dashboard: "1"
+    {{- include "demo-api.labels" . | nindent 4 }}
+data:
+  demo-api.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+          "id": 1,
+          "targets": [{"expr": "sum(rate(demo_api_http_requests_total{namespace=\"{{ .Release.Namespace }}\"}[5m]))", "refId": "A"}],
+          "title": "Request rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {"defaults": {"unit": "percentunit"}},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+          "id": 2,
+          "targets": [{"expr": "sum(rate(demo_api_http_requests_total{namespace=\"{{ .Release.Namespace }}\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(demo_api_http_requests_total{namespace=\"{{ .Release.Namespace }}\"}[5m])), 0.001)", "refId": "A"}],
+          "title": "5xx ratio",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {"defaults": {"unit": "s"}},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+          "id": 3,
+          "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(demo_api_http_request_duration_seconds_bucket{namespace=\"{{ .Release.Namespace }}\"}[5m])))", "refId": "A"}],
+          "title": "p95 latency",
+          "type": "timeseries"
+        }
+      ],
+      "schemaVersion": 41,
+      "tags": ["devsecops", "fastapi"],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "hide": 2,
+            "label": "Prometheus",
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {"from": "now-1h", "to": "now"},
+      "title": "DevSecOps Demo API",
+      "uid": "devsecops-demo-api",
+      "version": 1
+    }
+{{- end }}
+

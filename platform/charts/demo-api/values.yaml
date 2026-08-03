@@ -1,0 +1,129 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/murillo-consulting/kube-aegis-forge
+  tag: dev
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 192Mi
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels: {}
+
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  monitoringNamespace: monitoring
+
+namespaceGuardrails:
+  enabled: true
+  resourceQuota:
+    pods: "20"
+    requestsCpu: "2"
+    requestsMemory: 2Gi
+    limitsCpu: "4"
+    limitsMemory: 4Gi
+  limitRange:
+    defaultRequest:
+      cpu: 25m
+      memory: 32Mi
+    defaultLimit:
+      cpu: 500m
+      memory: 256Mi
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  prometheusRule:
+    enabled: true
+  grafanaDashboard:
+    enabled: true
+
+build:
+  version: dev
+  gitSha: unknown
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+

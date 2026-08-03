@@ -1,0 +1,16 @@
+replicaCount: 2
+nameOverride: demo-api
+fullnameOverride: demo-api
+
+ingress:
+  enabled: false
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+build:
+  version: aws
+  gitSha: gitops

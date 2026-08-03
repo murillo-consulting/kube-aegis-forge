@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+htmlcov/
+
+# OpenTofu
+**/.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.*
+.plans/
+tfplan
+tfplan.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local tooling and generated evidence
+.env
+.idea/
+.vscode/
+dist/
+/evidence/
+tmp/
+
+# Operating systems
+.DS_Store
+Thumbs.db

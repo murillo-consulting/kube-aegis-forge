@@ -1,0 +1,38 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "demo-api.fullname" . }}
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: demo-api.availability
+      rules:
+        - alert: DemoApiUnavailable
+          expr: up{namespace={{ .Release.Namespace | quote }},service={{ include "demo-api.fullname" . | quote }}} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Demo API target is unavailable
+        - alert: DemoApiHighErrorRate
+          expr: |
+            sum(rate(demo_api_http_requests_total{namespace={{ .Release.Namespace | quote }},status=~"5.."}[5m]))
+            / clamp_min(sum(rate(demo_api_http_requests_total{namespace={{ .Release.Namespace | quote }}}[5m])), 0.001) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Demo API 5xx rate exceeds 5 percent
+        - alert: DemoApiHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(demo_api_http_request_duration_seconds_bucket{namespace={{ .Release.Namespace | quote }}}[5m]))) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Demo API p95 latency exceeds 500 milliseconds
+{{- end }}
+
