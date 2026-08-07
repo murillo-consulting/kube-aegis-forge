@@ -48,6 +48,14 @@ spec:
                 cpu: "1"
                 memory: 1Gi
         prometheusOperator:
+          admissionWebhooks:
+            annotations:
+              argocd.argoproj.io/hook: PreSync
+              argocd.argoproj.io/hook-delete-policy: HookSucceeded
+            patch:
+              annotations:
+                argocd.argoproj.io/hook: PostSync
+                argocd.argoproj.io/hook-delete-policy: HookSucceeded
           resources:
             requests:
               cpu: 50m
