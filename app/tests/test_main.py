@@ -57,4 +57,17 @@ def test_unhandled_exception_has_generic_response() -> None:
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
     assert "sensitive" not in response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    metrics = TestClient(app).get("/metrics").text
+    assert 'method="GET",route="/test-failure",status="500"' in metrics
 
+
+def test_arbitrary_methods_do_not_create_unbounded_metric_labels() -> None:
+    client = TestClient(create_app())
+    for method in ("CUSTOMONE", "CUSTOMTWO", "CUSTOMTHREE"):
+        assert client.request(method, "/").status_code == 405
+    metrics = client.get("/metrics").text
+    assert 'method="OTHER"' in metrics
+    for method in ("CUSTOMONE", "CUSTOMTWO", "CUSTOMTHREE"):
+        assert method not in metrics

@@ -125,7 +125,7 @@ function Test-Platform {
     }
 
     Invoke-Checked { kubectl --context $context wait --for=condition=Ready nodes --all --timeout=5m }
-    foreach ($application in @("platform-common", "ingress-nginx", "metrics-server", "kyverno", "monitoring", "security-policies", "demo-api", "platform-root")) {
+    foreach ($application in @("platform-common", "traefik", "metrics-server", "kyverno", "monitoring", "security-policies", "demo-api", "platform-root")) {
         Wait-ForApplication -Name $application
     }
     Invoke-Checked { kubectl --context $context -n demo wait deployment/demo-api --for=condition=Available --timeout=5m } # gitleaks:allow

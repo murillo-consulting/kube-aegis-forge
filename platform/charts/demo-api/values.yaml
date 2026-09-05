@@ -41,7 +41,7 @@ service:
 
 ingress:
   enabled: false
-  className: nginx
+  className: traefik
   annotations: {}
   hosts:
     - host: ""
@@ -91,7 +91,7 @@ topologySpreadConstraints:
 
 networkPolicy:
   enabled: true
-  ingressNamespace: ingress-nginx
+  ingressNamespace: traefik
   monitoringNamespace: monitoring
 
 namespaceGuardrails:
