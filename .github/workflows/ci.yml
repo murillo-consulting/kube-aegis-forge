@@ -38,6 +38,33 @@ jobs:
       - name: Test atomic GitOps promotion and input validation
         run: python -m unittest discover -s ../scripts/tests -v
 
+  container:
+    name: Restricted container startup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the reviewed image
+        run: docker build --tag aegis-ci:test .
+      - name: Verify startup with the restricted runtime contract
+        run: |
+          docker run --detach --name aegis-ci --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 127.0.0.1:18081:8080 aegis-ci:test
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:18081/health/ready | grep -Fq '"status":"ready"'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs aegis-ci
+          exit 1
+      - name: Remove the disposable test container
+        if: always()
+        run: docker rm --force aegis-ci || true
+
   kubernetes:
     name: Helm, Kubernetes, and Kyverno
     runs-on: ubuntu-24.04
