@@ -35,6 +35,8 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy src tests
       - run: uv run pytest
+      - name: Test atomic GitOps promotion and input validation
+        run: python -m unittest discover -s ../scripts/tests -v
 
   kubernetes:
     name: Helm, Kubernetes, and Kyverno

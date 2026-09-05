@@ -31,6 +31,12 @@ tasks:
       - helm lint platform/charts/demo-api --values platform/environments/local/values.yaml --values platform/environments/local/image-values.yaml
       - helm template demo-api platform/charts/demo-api --namespace demo --values platform/environments/local/values.yaml --values platform/environments/local/image-values.yaml > {{if eq OS "windows"}}NUL{{else}}/dev/null{{end}}
 
+  promotion:check:
+    desc: Test atomic image promotion and rejected inputs without cloud access
+    dir: app
+    cmds:
+      - uv run python -m unittest discover -s ../scripts/tests -v
+
   tofu:check:
     desc: Format and validate all OpenTofu roots
     cmds:
@@ -101,4 +107,3 @@ tasks:
     desc: Destroy AWS resources after project-name confirmation
     cmds:
       - '{{if eq OS "windows"}}{{.POWERSHELL}} -NoProfile -ExecutionPolicy Bypass -File scripts/aws.ps1 -Command destroy{{else}}bash scripts/aws.sh destroy{{end}}'
-

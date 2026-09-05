@@ -19,6 +19,11 @@ The mandatory acceptance path is local and free: a clean clone can create a thre
 
 ## Quick start
 
+**Adoption status:** the current ingress-nginx dependency is retired upstream.
+Use this configuration as a local reference lab. A maintained ingress replacement
+is required before production adoption. See the
+[platform review, roadmap and regression checks](docs/product-review.md).
+
 Prerequisites:
 
 - Docker with at least 10 GiB available;

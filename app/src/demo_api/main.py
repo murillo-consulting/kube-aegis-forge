@@ -16,6 +16,9 @@ from starlette.responses import Response as StarletteResponse
 from demo_api.settings import Settings
 
 LOGGER = logging.getLogger(__name__)
+HTTP_METHODS = frozenset(
+    {"GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"}
+)
 
 HTTP_REQUESTS = Counter(
     "demo_api_http_requests_total",
@@ -53,13 +56,18 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[StarletteResponse]],
     ) -> StarletteResponse:
         started = time.perf_counter()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            LOGGER.exception("Unhandled request failure")
+            response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
         route = request.scope.get("route")
         route_path = getattr(route, "path", "<unmatched>")
         status = str(response.status_code)
 
-        HTTP_REQUESTS.labels(request.method, route_path, status).inc()
-        HTTP_DURATION.labels(request.method, route_path).observe(time.perf_counter() - started)
+        method = request.method if request.method in HTTP_METHODS else "OTHER"
+        HTTP_REQUESTS.labels(method, route_path, status).inc()
+        HTTP_DURATION.labels(method, route_path).observe(time.perf_counter() - started)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
@@ -77,11 +85,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
     )
     application.add_middleware(ObservabilityMiddleware)
-
-    @application.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        LOGGER.exception("Unhandled request failure on %s", request.url.path, exc_info=exc)
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     @application.get("/", response_model=BuildInfo)
     async def build_info() -> BuildInfo:
@@ -107,4 +110,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 app = create_app()
-

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
+import tempfile
 from pathlib import Path
 
 DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -67,10 +70,25 @@ def main() -> None:
         f"  digest: {args.digest}\n"
         "  pullPolicy: IfNotPresent\n"
         "build:\n"
-        f"  version: {args.version}\n"
+        f"  version: {json.dumps(args.version)}\n"
         f'  gitSha: "{args.git_sha or ""}"\n'
     )
-    destination.write_text(content, encoding="utf-8", newline="\n")
+    # Write beside the destination so rename is atomic on the same filesystem.
+    # Interrupted promotions must leave the previous complete values intact.
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n",
+            dir=destination.parent, delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(content)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        temporary_path.replace(destination)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     print(destination)
 
 
