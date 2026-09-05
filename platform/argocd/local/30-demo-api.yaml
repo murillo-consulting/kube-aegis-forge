@@ -10,7 +10,7 @@ spec:
   sources:
     - repoURL: ghcr.io/murillo-consulting
       chart: kube-aegis-forge
-      targetRevision: 0.3.0
+      targetRevision: 0.4.0
       helm:
         releaseName: demo-api
         valueFiles:

@@ -16,15 +16,21 @@ It is a reference implementation, not a managed Kubernetes service.
 | [Argo Rollouts](https://argoproj.github.io/argo-rollouts/) | Canary and blue/green delivery with analysis | A future optional overlay should prove automatic abort on an injected error before becoming the default. |
 | [Prometheus instrumentation](https://prometheus.io/docs/practices/instrumentation/) | Bound labels and instrument failures | HTTP methods now use a finite label set. Unhandled application failures produce a 500 series and safe response headers. |
 
-## Production adoption blocker
+## Maintained ingress controller
 
-The current platform still uses ingress-nginx. Kubernetes announced its
-[retirement for March 2026](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/).
-Pinning a historical image does not provide future security fixes. Keep this
-configuration confined to the local reference lab. Before production adoption,
-replace it with a maintained controller or Gateway API implementation and
-validate traffic, TLS, NetworkPolicies and the local verification scripts.
-That migration is not implemented by this review.
+Traefik chart 41.4.0 replaces ingress-nginx, whose retirement was announced for
+[March 2026](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/).
+The controller image is pinned by a multi-architecture digest. Standard Ingress
+resources, Argo CD and the private NodePort contract are preserved. No public
+load balancer, ACME service or Gateway API CRDs are introduced.
+
+Existing clusters must follow the [migration runbook](runbooks/ingress-migration.md)
+to release the old NodePort and remove orphaned controller resources. The
+[architecture decision](adr/0009-maintained-ingress.md) records the tradeoffs.
+The local test validates HTTP, opt-in TLS and controller restart. NetworkPolicy
+selectors are validated structurally; kind's default kindnet CNI does not enforce
+them. Enforce and test those policies with the target production CNI before
+claiming network isolation.
 
 ## Improvements in this change
 
@@ -42,6 +48,7 @@ That migration is not implemented by this review.
 task app:check
 task promotion:check
 task helm:check
+task ingress:check
 ```
 
 The new tests cover a failing endpoint, arbitrary HTTP methods, YAML-ambiguous
@@ -53,7 +60,7 @@ commit. Local tests do not establish EKS or Kubernetes end-to-end success.
 
 | Priority | Work | Acceptance criterion |
 | --- | --- | --- |
-| P0 | Replace the retired ingress controller | A clean local cluster passes routing, TLS, network isolation and self-healing checks with a maintained implementation. |
+| P0 | Validate production network isolation | With the target policy-enforcing CNI, allowed ingress and monitoring traffic succeeds while a pod in an unrelated namespace is denied. |
 | P1 | Separate user-traffic SLOs from probes and scrapes | Inject 5xx and latency into user traffic and prove alerts fire without probe traffic diluting the denominator. |
 | P1 | Exercise recovery | Restore a cluster from Git and verified artifacts, record elapsed time and distinguish it from application-data recovery. |
 | P2 | Add progressive delivery | A canary aborts on a failing analysis and leaves the last healthy revision serving traffic. |

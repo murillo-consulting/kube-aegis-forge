@@ -19,10 +19,10 @@ The mandatory acceptance path is local and free: a clean clone can create a thre
 
 ## Quick start
 
-**Adoption status:** the current ingress-nginx dependency is retired upstream.
-Use this configuration as a local reference lab. A maintained ingress replacement
-is required before production adoption. See the
-[platform review, roadmap and regression checks](docs/product-review.md).
+**Ingress:** Traefik replaces the retired ingress-nginx controller. Existing
+clusters require the [migration procedure](docs/runbooks/ingress-migration.md)
+before reconciling this revision. The platform remains a reference implementation;
+see the [adoption limits and regression checks](docs/product-review.md).
 
 Prerequisites:
 
@@ -70,7 +70,7 @@ The CI identity cannot deploy to Kubernetes. It may only publish verified artifa
 
 Argo CD uses an app-of-apps hierarchy and two projects:
 
-- `platform` owns ingress-nginx, Kyverno, metrics-server, kube-prometheus-stack, and cluster policies;
+- `platform` owns Traefik, Kyverno, metrics-server, kube-prometheus-stack, and cluster policies;
 - `workloads` is restricted to the `demo` namespace and the application repository.
 
 The FastAPI workload exposes:

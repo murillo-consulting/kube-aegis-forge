@@ -11,7 +11,7 @@ spec:
     - https://github.com/murillo-consulting/kube-aegis-forge.git
     - ghcr.io/murillo-consulting
     - https://argoproj.github.io/argo-helm
-    - https://kubernetes.github.io/ingress-nginx
+    - https://traefik.github.io/charts
     - https://kubernetes-sigs.github.io/metrics-server/
     - https://kyverno.github.io/kyverno/
     - https://prometheus-community.github.io/helm-charts

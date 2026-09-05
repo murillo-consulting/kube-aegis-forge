@@ -49,6 +49,12 @@ jobs:
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.2.3
+      - name: Install uv for ingress contract checks
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+      - name: Verify controller, routing and network-policy contracts
+        run: uv run --locked --script scripts/check-ingress.py
       - name: Lint and render chart
         run: |
           helm lint platform/charts/demo-api \
@@ -71,6 +77,46 @@ jobs:
             --volume "$PWD:/workspace:ro" \
             ghcr.io/kyverno/kyverno-cli@sha256:7224ed05508c24419c3df98114c28ba682ad0a940dcdb7b9fdba0a4b6bf943cf \
             test /workspace/platform/policies/tests
+
+  ingress:
+    name: Traefik HTTP, TLS and recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the reviewed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install kind
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          version: v0.32.0
+          install_only: true
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.3
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+      - name: Prepare the isolated ingress fixture
+        run: |
+          export KUBECONFIG="$RUNNER_TEMP/aegis-ingress-kubeconfig"
+          echo "KUBECONFIG=$KUBECONFIG" >> "$GITHUB_ENV"
+          uv run --locked --script scripts/check-ingress.py --output "$RUNNER_TEMP/ingress"
+          git fetch --depth=1 origin gitops
+          git show FETCH_HEAD:platform/environments/local/image-values.yaml > "$RUNNER_TEMP/ingress/image-values.yaml"
+          cat "$RUNNER_TEMP/ingress/image-values.yaml"
+          kind create cluster --name aegis-ingress-ci --config "$RUNNER_TEMP/ingress/kind.yaml" --wait 180s
+      - name: Exercise the reviewed charts with a released application digest
+        run: bash scripts/test-ingress.sh kind-aegis-ingress-ci "$RUNNER_TEMP/ingress/image-values.yaml"
+      - name: Capture ingress diagnostics
+        if: failure()
+        run: |
+          kubectl --context kind-aegis-ingress-ci get pods,services,ingresses -A -o wide || true
+          kubectl --context kind-aegis-ingress-ci -n traefik logs deployment/traefik --all-pods=true --tail=100 || true
+      - name: Delete only the disposable ingress cluster
+        if: always()
+        run: kind delete cluster --name aegis-ingress-ci
 
   opentofu:
     name: OpenTofu format and validate
