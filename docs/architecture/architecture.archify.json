@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "kube-aegis-forge — architecture",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1090,
+      540
+    ],
+    "repository": {
+      "url": "https://github.com/murillo-consulting/kube-aegis-forge",
+      "revision": "6d01f679f5a05a67aabb32b5fcbc41b4bf7b65ee",
+      "provider": "github"
+    }
+  },
+  "components": [
+    {
+      "id": "component-0",
+      "type": "backend",
+      "label": "Livraison CI",
+      "sublabel": "Images et preuves signées",
+      "pos": [
+        50,
+        65
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": ".github/workflows/release.yml",
+          "line": 1,
+          "end_line": 9
+        }
+      ]
+    },
+    {
+      "id": "component-1",
+      "type": "backend",
+      "label": "Argo CD",
+      "sublabel": "Chart OCI + révision GitOps",
+      "pos": [
+        425,
+        65
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": "platform/argocd/local/30-demo-api.yaml",
+          "line": 10,
+          "end_line": 18
+        }
+      ]
+    },
+    {
+      "id": "component-2",
+      "type": "backend",
+      "label": "Workload FastAPI",
+      "sublabel": "Deux réplicas durcis",
+      "pos": [
+        800,
+        65
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": "platform/charts/demo-api/templates/deployment.yaml",
+          "line": 2,
+          "end_line": 10
+        }
+      ]
+    },
+    {
+      "id": "component-3",
+      "type": "backend",
+      "label": "Métriques",
+      "sublabel": "Prometheus / Grafana",
+      "pos": [
+        800,
+        365
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": "platform/argocd/common/13-monitoring.yaml",
+          "line": 12,
+          "end_line": 20
+        }
+      ]
+    },
+    {
+      "id": "component-4",
+      "type": "security",
+      "label": "Kyverno",
+      "sublabel": "Admission et signature",
+      "pos": [
+        425,
+        365
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": "platform/policies/verify-image.yaml",
+          "line": 2,
+          "end_line": 10
+        }
+      ]
+    },
+    {
+      "id": "component-5",
+      "type": "cloud",
+      "label": "Cluster kind",
+      "sublabel": "Parcours local de référence",
+      "pos": [
+        50,
+        365
+      ],
+      "size": [
+        235,
+        90
+      ],
+      "sources": [
+        {
+          "path": "platform/kind/cluster.yaml",
+          "line": 1,
+          "end_line": 9
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "edge-0-1",
+      "from": "component-0",
+      "to": "component-1",
+      "label": "GitOps"
+    },
+    {
+      "id": "edge-1-2",
+      "from": "component-1",
+      "to": "component-2",
+      "label": "réconcilie"
+    },
+    {
+      "id": "edge-2-3",
+      "from": "component-2",
+      "to": "component-3",
+      "label": "collecte",
+      "labelDy": 60
+    },
+    {
+      "id": "edge-1-4",
+      "from": "component-1",
+      "to": "component-4",
+      "label": "installe",
+      "labelDy": 60
+    }
+  ]
+}

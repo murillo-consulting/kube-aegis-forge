@@ -175,3 +175,7 @@ Version 1 intentionally excludes a public domain and TLS, databases, External Se
 ## Contributing and license
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request and report vulnerabilities through [SECURITY.md](SECURITY.md). Licensed under [Apache-2.0](LICENSE).
+
+## Architecture interactive
+
+[Carte Archify et sources vérifiées](docs/architecture/README.md).
